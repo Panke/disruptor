@@ -1,0 +1,189 @@
+module crybot.concurrency.disruptor;
+
+import std.math : nextPow2;
+import std.algorithm : map;
+import std.range;
+
+///
+struct ConsumerToken
+{
+    ubyte[7] dependencies = [ ubyte.max, ubyte.max, ubyte.max,
+        ubyte.max, ubyte.max, ubyte.max, ubyte.max ];
+    ubyte ownSlot;
+
+    this(ubyte slot) { ownSlot = slot; }
+
+    void waitFor(const ConsumerToken other)
+    {
+        import std.algorithm.searching : find;
+        dependencies[].find(ubyte.max).front = other.ownSlot;
+    }
+}
+
+/**
+A single-producer, multiple consumer disruptor implementation
+*/
+struct Disruptor(T, ulong Size=nextPow2(10_000), ulong Consumers=63)
+{
+    import core.atomic : atomicLoad, atomicStore, atomicOp, MemoryOrder;
+
+    /// counters[0] is the producers counter,
+    ulong[Consumers+1] counters;
+
+    /// the number of registered consumers
+    shared ubyte consumerCount = 0;
+
+    /// where the data is actually stored
+    T[Size] ringBuffer;
+
+    /**
+    Returns the last slot the producer has written to
+    or 0 if nothing has been produced yet.
+
+    The first slot the producer writes to is 1.
+    */
+    ulong producerCount() const shared { return counters[0]; }
+    ulong minConsumerCount() const shared 
+    {
+        import std.algorithm : map, minElement;
+        if (consumerCount == 0)
+            return 0;
+        return counters[1 .. consumerCount+1]
+            .map!((ref x) => x.atomicLoad!(MemoryOrder.acq))
+            .minElement;
+    }
+
+    /**
+    Iff there is more room in the Disruptor, calls del
+    with a reference to the free slot. The second argument index
+    is the index of the slot. 
+
+    Returns: 
+        true, if the delegate was called
+        false, otherwise (Disruptor is full)
+    */
+    bool produce(void delegate(ref T slot, ulong index) del) shared
+    {
+        import core.atomic : atomicFence, atomicStore;
+        ulong nextSlot = counters[0] + 1;
+
+        ulong minConsumer = minConsumerCount();
+        bool full = minConsumer + Size < nextSlot;
+        if (!full)
+        {
+            T[] frame = cast(T[])(ringBuffer);
+            del(frame[nextSlot % Size], nextSlot);
+            counters[0].atomicStore!(MemoryOrder.rel)(nextSlot);
+        }
+        return !full;
+    }
+
+    /**
+    Consume from the Disruptor. Calls del with the slice of produced but not
+    consumed elements. The argument firstIndex is the index of the
+    first element in slice. 
+
+    Only calls del if there is something to consume (slice is never empty).
+
+    Returns: true, if del was called, otherwise false.
+    */
+    bool consume(ConsumerToken token, void delegate(T[] slice, ulong firstIndex) del) shared
+    {
+        import std.range : only, chain;
+        import std.algorithm : map, filter, minElement;
+
+        ulong max = only(producerCount())
+            .chain(token.dependencies[].filter!(x => x != ubyte.max)
+                .map!(x => counters[x]))
+            .minElement;
+        ulong myCounter = counters[token.ownSlot].atomicLoad!(MemoryOrder.acq);
+        assert (max >= myCounter);
+        ulong nextToRead = myCounter + 1;
+        if (nextToRead <= max)
+        {
+            const auto start = nextToRead % Size;
+            auto end = (max + 1) % Size;
+            T[] frame = cast(T[]) {
+                if (start > end)
+                    return ringBuffer[start .. $];
+                return ringBuffer[start .. end];
+            }();
+
+            del(frame, nextToRead);
+            counters[token.ownSlot].atomicStore!(MemoryOrder.rel)(max);
+            return true;
+        }
+        return false;
+    }
+
+    /// Generate a new consumer token. 
+    ConsumerToken createConsumerToken() shared
+    {
+        ubyte token = atomicOp!("+=")(consumerCount, 1);
+        return ConsumerToken(token);
+    }
+}
+
+///
+unittest {
+    import std.functional : toDelegate;
+    alias D = Disruptor!int;
+
+    int testInt = ubyte.max;
+    auto doNothing = (int[] values, ulong idx) {
+        if (!values.empty)
+            testInt = values[0];
+    };
+
+    shared D d;
+    ConsumerToken consumer1 = d.createConsumerToken();
+    ConsumerToken consumer2 = d.createConsumerToken();
+
+    assert (!d.consume(consumer1, doNothing));
+    assert (!d.consume(consumer2, doNothing));
+
+    d.produce((ref int v, ulong _) {
+        v = 1;
+    }.toDelegate());
+
+    assert (d.consume(consumer1, doNothing));
+    assert (testInt == 1);
+    assert (!d.consume(consumer1, doNothing));
+    testInt = 2;
+    assert (d.consume(consumer2, doNothing));
+    assert (testInt == 1);
+    assert (!d.consume(consumer2, doNothing));
+}
+
+///
+unittest
+{
+    import std.functional : toDelegate;
+    alias D = Disruptor!int;
+
+    int testInt = ubyte.max;
+    auto doNothing = (int[] values, ulong idx) {
+        if (!values.empty)
+            testInt = values[0];
+    };
+
+    shared D d;
+    ConsumerToken consumer1 = d.createConsumerToken();
+    ConsumerToken consumer2 = d.createConsumerToken();
+    consumer2.waitFor(consumer1);
+
+    assert (!d.consume(consumer1, doNothing));
+    assert (!d.consume(consumer2, doNothing));
+
+    d.produce((ref int v, ulong _) {
+        v = 1;
+    }.toDelegate());
+
+    testInt = ubyte.max;
+    assert (!d.consume(consumer2, doNothing));
+    assert (testInt == ubyte.max);
+    assert (d.consume(consumer1, doNothing));
+    assert (testInt == 1);
+    assert (!d.consume(consumer1, doNothing));
+    assert (d.consume(consumer2, doNothing));
+}

@@ -1,0 +1,18 @@
+name "disruptor"
+description "A kind of single producer / multiple consumer queue"
+authors "Tobias Pankrath"
+homepage "http://github.com/Panke/disruptor.git"
+license "LGPL-3.0-or-later"
+
+configuration "unittest" {
+    targetType "executable"
+    sourceFiles "disruptor.d" "tests/main.d"
+    importPaths ".."
+    mainSourceFile "tests/main.d"
+}
+
+configuration "library" {
+    targetType "sourceLibrary"
+    sourceFiles "disruptor.d"
+    importPaths ".."
+}
