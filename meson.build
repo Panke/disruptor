@@ -1,6 +1,6 @@
 project('disruptor', 'd',
     license: ['LGPL-3.0-or-later', 'MPL-2.0'],
-    meson_version: '>=0.53.0',
+    meson_version: '>=0.54.0',
     version: '0.1.0'
 )
 
