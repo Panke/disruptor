@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <title>Disruptor (disruptor.disruptor.Disruptor)</title>
+	<meta charset="utf-8" />
+	<meta content="width=device-width, initial-scale=1" name="viewport" />
+        <link href="style.css" rel="stylesheet" />
+        <script src="script.js" type="text/javascript"></script>
+
+	
+	<link href="search-results.html" rel="prefetch" />
+</head>
+<body>
+	<div id="page-header">
+		<div id="logotype">
+		<span>Documentation</span>
+		<nav>
+			<a href="http://dlang.org/">Dlang.org</a>
+		</nav>
+		</div>
+
+		<form action="search-docs.html" id="search">
+			<input name="searchTerm" placeholder="Find a symbol name..." type="search" />
+			<input type="submit" value="Go" />
+		</form>
+	</div>
+	<div id="page-body">
+		<div id="page-content">
+		<h1>Disruptor</h1><div class="breadcrumbs"><a class="breadcrumb" href="disruptor.html">disruptor</a> <a class="breadcrumb" href="disruptor.disruptor.html">disruptor</a> </div><div><div class="documentation-comment synopsis"><div><p>A single-producer, multiple consumer disruptor implementation</p><ul class="user-list"><li>T = The type of the slots</li><li>Size = size of the ring buffer in slots. Rounded up to the next
+           power of 2.</li><li>Consumers = number of <a class="xref" href="disruptor.disruptor.ConsumerToken.html">ConsumerToken</a> the disruptor can issue</li></ul></div></div></div><div class="annotated-prototype"><div class="aggregate-prototype"><div class="attributes"></div><span class="builtin-type">struct</span> Disruptor (<div class="parameters-list toplevel"><div class="template-parameter-item parameter-item">	<span><span class="name" data-ident="T">T</span></span></div><div class="template-parameter-item parameter-item">	<span><span class="builtin-type">ulong</span> <span class="name" data-ident="Size">Size</span> = <span class="name" data-ident="nextPow2">nextPow2</span>(10_000)</span></div><div class="template-parameter-item parameter-item">	<span><span class="builtin-type">ulong</span> <span class="name" data-ident="Consumers">Consumers</span> = 63</span></div></div>) {<div class="aggregate-member"><a href="disruptor.disruptor.Disruptor.produce.html"><tt class="highlighted"><span class="type">bool</span></tt> <span class="name">produce</span>(void delegate(ref T slot, ulong index) del);</a></div><div class="aggregate-member"><a href="disruptor.disruptor.Disruptor.consume.html"><tt class="highlighted"><span class="type">bool</span></tt> <span class="name">consume</span>(ConsumerToken token, void delegate(T[] slice, ulong firstIndex) del);</a></div><div class="aggregate-member"><a href="disruptor.disruptor.Disruptor.createConsumerToken.html"><tt class="highlighted"><span class="hid">ConsumerToken</span></tt> <span class="name">createConsumerToken</span>();</a></div>}</div></div><h2 id="members"><a class="header-anchor" href="#members">Members</a></h2><h3 class="member-list-header hide-from-toc" id="function"><a class="header-anchor" href="#function">Functions</a></h3><dl class="member-list native"><dt><a href="disruptor.disruptor.Disruptor.consume.html">consume</a><div class="simplified-prototype" style="max-width: 89ch;"><tt class="highlighted"><span class="type">bool</span></tt> <span class="name">consume</span>(ConsumerToken token, void delegate(T[] slice, ulong firstIndex) del)</div></dt><dd><div><p>Consume from the Disruptor. Calls del with the slice of produced but not
+    consumed elements. The argument firstIndex is the index of the
+    first element in slice.</p></div></dd><dt><a href="disruptor.disruptor.Disruptor.createConsumerToken.html">createConsumerToken</a><div class="simplified-prototype" style="max-width: 38ch;"><tt class="highlighted"><span class="hid">ConsumerToken</span></tt> <span class="name">createConsumerToken</span>()</div></dt><dd><div><p>Generate a new consumer token.</p></div></dd><dt><a href="disruptor.disruptor.Disruptor.produce.html">produce</a><div class="simplified-prototype" style="max-width: 61ch;"><tt class="highlighted"><span class="type">bool</span></tt> <span class="name">produce</span>(void delegate(ref T slot, ulong index) del)</div></dt><dd><div><p>Iff there is more room in the Disruptor, calls <a class="" href="disruptor.disruptor.Disruptor.produce.html#param-del">del</a>
+    with a reference to the free slot. The second argument <a class="" href="disruptor.disruptor.Disruptor.produce.html#param-index">index</a>
+    is the index of the slot.</p></div></dd></dl><div><h2 id="examples"><a class="header-anchor" href="#examples">Examples</a></h2><div class="documentation-comment"><div></div></div><div class="unittest-example-holder"><div class="documentation-comment"></div><pre class="d_code highlighted with-line-wrappers"><span class="br">1 </span><span class="kwrd">import</span> <span class="hid">std</span>.<span class="hid">functional</span> : <span class="hid">toDelegate</span>;
+<span class="br">2 </span><span class="kwrd">alias</span> <span class="hid">D</span> = <span class="hid">Disruptor</span>!<span class="type">int</span>;
+<span class="br">3 </span>
+<span class="br">4 </span><span class="type">int</span> <span class="hid">testInt</span> = <span class="type">ubyte</span>.<span class="hid">max</span>;
+<span class="br">5 </span><span class="kwrd">auto</span> <span class="hid">doNothing</span> = (<span class="type">int</span>[] <span class="hid">values</span>, <span class="type">ulong</span> <span class="hid">idx</span>) {
+<span class="br">6 </span>    <span class="kwrd">if</span> (!<span class="hid">values</span>.<span class="hid">empty</span>)
+<span class="br">7 </span>        <span class="hid">testInt</span> = <span class="hid">values</span>[<span class="num">0</span>];
+<span class="br">8 </span>};
+<span class="br">9 </span>
+<span class="br">10 </span><span class="kwrd">shared</span> <span class="hid">D</span> <span class="hid">d</span>;
+<span class="br">11 </span><span class="hid">ConsumerToken</span> <span class="hid">consumer1</span> = <span class="hid">d</span>.<span class="hid">createConsumerToken</span>();
+<span class="br">12 </span><span class="hid">ConsumerToken</span> <span class="hid">consumer2</span> = <span class="hid">d</span>.<span class="hid">createConsumerToken</span>();
+<span class="br">13 </span>
+<span class="br">14 </span><span class="kwrd">assert</span> (!<span class="hid">d</span>.<span class="hid">consume</span>(<span class="hid">consumer1</span>, <span class="hid">doNothing</span>));
+<span class="br">15 </span><span class="kwrd">assert</span> (!<span class="hid">d</span>.<span class="hid">consume</span>(<span class="hid">consumer2</span>, <span class="hid">doNothing</span>));
+<span class="br">16 </span>
+<span class="br">17 </span><span class="hid">d</span>.<span class="hid">produce</span>((<span class="kwrd">ref</span> <span class="type">int</span> <span class="hid">v</span>, <span class="type">ulong</span> <span class="hid">_</span>) {
+<span class="br">18 </span>    <span class="hid">v</span> = <span class="num">1</span>;
+<span class="br">19 </span>}.<span class="hid">toDelegate</span>());
+<span class="br">20 </span>
+<span class="br">21 </span><span class="kwrd">assert</span> (<span class="hid">d</span>.<span class="hid">consume</span>(<span class="hid">consumer1</span>, <span class="hid">doNothing</span>));
+<span class="br">22 </span><span class="kwrd">assert</span> (<span class="hid">testInt</span> == <span class="num">1</span>);
+<span class="br">23 </span><span class="kwrd">assert</span> (!<span class="hid">d</span>.<span class="hid">consume</span>(<span class="hid">consumer1</span>, <span class="hid">doNothing</span>));
+<span class="br">24 </span><span class="hid">testInt</span> = <span class="num">2</span>;
+<span class="br">25 </span><span class="kwrd">assert</span> (<span class="hid">d</span>.<span class="hid">consume</span>(<span class="hid">consumer2</span>, <span class="hid">doNothing</span>));
+<span class="br">26 </span><span class="kwrd">assert</span> (<span class="hid">testInt</span> == <span class="num">1</span>);
+<span class="br">27 </span><span class="kwrd">assert</span> (!<span class="hid">d</span>.<span class="hid">consume</span>(<span class="hid">consumer2</span>, <span class="hid">doNothing</span>));</pre></div></div></div>
+		<div id="page-nav"><a class="parent" href="disruptor.html">disruptor</a> <a class="parent" href="disruptor.disruptor.html">disruptor</a> 
+		<span class="type-separator">structs</span><ul><li><a class="struct" href="disruptor.disruptor.ConsumerToken.html">ConsumerToken</a></li><li><a class="struct current" href="disruptor.disruptor.Disruptor.html">Disruptor</a></li></ul></div>
+	</div>
+	<div id="page-footer">Page generated by <a href="https://github.com/adamdruppe/adrdox">adrdox</a></div>
+</body>
+</html>
