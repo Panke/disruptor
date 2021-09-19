@@ -1,23 +1,23 @@
 /**
 An implementation of the [fowler].
 
-A disruptor is glorified ring buffer that allows multiple consumers to 
-read its contents. This implementation is only threadsafe for a single 
+A disruptor is glorified ring buffer that allows multiple consumers to
+read its contents. This implementation is only threadsafe for a single
 producer. It differs from a normal single producer / multi consumer queue
 in the following points:
 
 $(LIST
   * Slots are not distributed between consumers. Every consumer can consume each slot.
-  * Slow consumer can catch up by consuming multiple slots at once. 
-  * Consumers can coordinate between each other by forming a dependency graph. If 
-consumer A declares to depend on consumer B, it will only be able to read 
-a slot after B has finished consuming it. 
+  * Slow consumer can catch up by consuming multiple slots at once.
+  * Consumers can coordinate between each other by forming a dependency graph. If
+consumer A declares to depend on consumer B, it will only be able to read
+a slot after B has finished consuming it.
 )
 
 To interact with the disruptor a producer just calls [Disruptor.produce],
 while consumers need to aquire a [ConsumerToken] first. The token tracks
 the current position of the consumer in the ringbuffer and on which other
-consumers it depends. 
+consumers it depends.
 
 Link_References:
     fowler = [https://martinfowler.com/articles/lmax.html | Disruptor Pattern]
@@ -35,7 +35,7 @@ ConsumerToken are used by consumers to interact with the [Disruptor]
 
 Consumer must receive exactly one token via a call to
 `createConsumerToken` and provide it on every call
-to Disruptor.consume. 
+to Disruptor.consume.
 
 Consumer tokens are also used to track dependencies between
 different consumers, e.g. if A may only consume slots that
@@ -74,7 +74,7 @@ $(LIST
 */
 struct Disruptor(T, ulong Size=nextPow2(10_000), ulong Consumers=63)
 {
-    import core.atomic : atomicLoad, atomicStore, atomicOp, MemoryOrder;
+    import core.atomic : atomicLoad, atomicStore, atomicOp, MemoryOrder, atomicFence;
 private:
     // counters[0] is the producers counter,
     ulong[Consumers+1] counters;
@@ -99,7 +99,7 @@ private:
     /*
     Returns the counter of the slowest consumer
     */
-    ulong minConsumerCount() const shared 
+    ulong minConsumerCount() const shared
     {
         import std.algorithm : map, minElement;
         if (consumerCount == 0)
@@ -112,15 +112,14 @@ public:
     /**
     Iff there is more room in the Disruptor, calls [#param-del|del]
     with a reference to the free slot. The second argument [#param-index|index]
-    is the index of the slot. 
+    is the index of the slot.
 
-    Returns: 
+    Returns:
         true, if the delegate was called
         false, otherwise (Disruptor is full)
     */
     bool produce(void delegate(ref T slot, ulong index) del) shared
     {
-        import core.atomic : atomicFence, atomicStore;
         ulong nextSlot = counters[0] + 1;
 
         ulong minConsumer = minConsumerCount();
@@ -137,7 +136,7 @@ public:
     /**
     Consume from the Disruptor. Calls del with the slice of produced but not
     consumed elements. The argument firstIndex is the index of the
-    first element in slice. 
+    first element in slice.
 
     Only calls del if there is something to consume (slice is never empty).
 
@@ -152,6 +151,7 @@ public:
             .chain(token.dependencies[].filter!(x => x != ubyte.max)
                 .map!(x => counters[x]))
             .minElement;
+        import std.stdio;
         ulong myCounter = counters[token.ownSlot].atomicLoad!(MemoryOrder.acq);
         assert (max >= myCounter);
         ulong nextToRead = myCounter + 1;
@@ -172,7 +172,7 @@ public:
         return false;
     }
 
-    /// Generate a new consumer token. 
+    /// Generate a new consumer token.
     ConsumerToken createConsumerToken() shared
     {
         ubyte token = atomicOp!("+=")(consumerCount, 1);
