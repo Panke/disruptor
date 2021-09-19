@@ -91,7 +91,10 @@ private:
 
     The first slot the producer writes to is 1.
     */
-    ulong producerCount() const shared { return counters[0]; }
+    ulong producerCount() const shared
+    {
+        return counters[0].atomicLoad!(MemoryOrder.acq);
+    }
 
     /*
     Returns the counter of the slowest consumer
