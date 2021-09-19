@@ -6,22 +6,23 @@ project('disruptor', 'd',
 
 disruptor_lib = library(
     'disruptor',
-    ['disruptor.d'],
+    ['source/disruptor.d'],
     build_by_default: false,
-    include_directories: '..'
+    include_directories: 'source'
 )
 
-disruptor_source_dep = declare_dependency(
-    include_directories: '../',
-    version: meson.project_version()
+disruptor_dep = declare_dependency(
+    include_directories: 'source',
+    link_with: disruptor_lib
 )
 
-meson.override_dependency(meson.project_name(), disruptor_source_dep)
+meson.override_dependency(meson.project_name(), disruptor_dep)
 
 disruptor_test_exe = executable(
     'disruptor-test',
-    ['tests/main.d', 'disruptor.d'],
-    dependencies: disruptor_source_dep,
-    d_args: ['-i'],
+    ['source/disruptor.d', 'tests/main.d'],
+    include_directories: 'source',
     d_unittest: true
 )
+
+test('disruptor', disruptor_test_exe)
