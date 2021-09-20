@@ -1,0 +1,32 @@
+root = true
+
+[*]
+end_of_line = lf
+
+[*.{d,tf},meson.build]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[meson.build]
+indent_style = space
+indent_size = 2
+
+[*.d]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+dfmt_brace_style = allman
+dfmt_soft_max_line_length =	80
+dfmt_align_switch_statements = false
+dfmt_split_operator_at_line_end = false
+dfmt_space_after_cast = false
+dfmt_space_after_keywords = true
+dfmt_space_before_function_parameters = false
+dfmt_selective_import_space = true
+dfmt_compact_labeled_statements = true
+dfmt_template_constraint_style 	= conditional_newline_indent
+dfmt_single_template_constraint_indent = true
+dfmt_space_before_aa_colon = false
+dfmt_keep_line_breaks = true
+
