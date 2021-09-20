@@ -75,8 +75,11 @@ $(LIST
 struct Disruptor(T, ulong Size=nextPow2(10_000), ulong Consumers=63)
 {
     import core.atomic : atomicLoad, atomicStore, atomicOp, MemoryOrder, atomicFence;
+
+    @disable this(this);
+    @disable this(ref return scope inout Disruptor another);
 private:
-    // counters[0] is the producers counter,
+    // counters[0] is the producer's counter,
     ulong[Consumers+1] counters;
 
     // the number of registered consumers
@@ -211,7 +214,7 @@ unittest {
     assert (!d.consume(consumer2, doNothing));
 }
 
-//
+///
 unittest
 {
     import std.functional : toDelegate;
