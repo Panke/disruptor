@@ -86,7 +86,7 @@ private:
     shared ubyte consumerCount = 0;
 
     // where the data is actually stored
-    T[Size] ringBuffer;
+    T[Size] ringBuffer = void;
 
     /*
     Returns the last slot the producer has written to
@@ -112,6 +112,15 @@ private:
             .minElement;
     }
 public:
+    void initialize()
+    {
+        foreach(i; 0 .. Size)
+        {
+            import core.lifetime : emplace;
+            emplace(&ringBuffer[i], 0);
+        }
+    }
+
     /**
     Iff there is more room in the Disruptor, calls [#param-del|del]
     with a reference to the free slot. The second argument [#param-index|index]
@@ -121,7 +130,7 @@ public:
         true, if the delegate was called
         false, otherwise (Disruptor is full)
     */
-    bool produce(void delegate(ref T slot, ulong index) del) shared
+    bool produce(scope void delegate(ref T slot, ulong index) del) shared
     {
         ulong nextSlot = counters[0] + 1;
 
@@ -130,6 +139,8 @@ public:
         if (!full)
         {
             T[] frame = cast(T[])(ringBuffer);
+            static if (__traits(hasMember, T, "reuse"))
+                frame[nextSlot % Size].reuse();
             del(frame[nextSlot % Size], nextSlot);
             counters[0].atomicStore!(MemoryOrder.rel)(nextSlot);
         }
@@ -145,7 +156,7 @@ public:
 
     Returns: true, if del was called, otherwise false.
     */
-    bool consume(ConsumerToken token, void delegate(T[] slice, ulong firstIndex) del) shared
+    bool consume(ConsumerToken token, scope void delegate(T[] slice, ulong firstIndex) del) shared
     {
         import std.range : only, chain;
         import std.algorithm : map, filter, minElement;
